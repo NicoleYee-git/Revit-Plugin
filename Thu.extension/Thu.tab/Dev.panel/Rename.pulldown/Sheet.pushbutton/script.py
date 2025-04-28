@@ -1,68 +1,82 @@
 # -*- coding: utf-8 -*-
 __title__   = "Sheet"
 __doc__     = """Version = 1.0
-Date    = 15.06.2024
+Date    = 29.04.2025
 ________________________________________________________________
 Description:
 
-This is the placeholder for a .pushbutton in a /pulldown
-You can use it to start your pyRevit Add-In
 
 ________________________________________________________________
-How-To:
+Author: Zwe"""
 
-1. [Hold ALT + CLICK] on the button to open its source folder.
-You will be able to override this placeholder.
+from pyrevit import forms
+from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet
+from pyrevit import revit, DB
 
-2. Automate Your Boring Work ;)
+# Collect all sheets
+sheets = FilteredElementCollector(revit.doc).OfCategory(DB.BuiltInCategory.OST_Sheets).WhereElementIsNotElementType().ToElements()
 
-________________________________________________________________
-TODO:
-[FEATURE] - Describe Your ToDo Tasks Here
-________________________________________________________________
-Last Updates:
-- [15.06.2024] v1.0 Change Description
-- [10.06.2024] v0.5 Change Description
-- [05.06.2024] v0.1 Change Description 
-________________________________________________________________
-Author: Erik Frits"""
+sheet_options = {sheet.SheetNumber + " - " + sheet.Name: sheet for sheet in sheets}
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝
-#==================================================
-from Autodesk.Revit.DB import *
+selected_sheets = forms.SelectFromList.show(
+    sheet_options.keys(),
+    multiselect=True,
+    title='Select Sheet(s) to Rename'
+)
 
-#.NET Imports
-import clr
-clr.AddReference('System')
-from System.Collections.Generic import List
+if selected_sheets:
+    # Ask whether to rename Sheet Name or Sheet Number
+    rename_target = forms.SelectFromList.show(
+        ["Sheet Name", "Sheet Number"],
+        multiselect=False,
+        title='What do you want to rename?'
+    )
 
+    if rename_target:
+        # Ask for Find, Replace, Prefix, Suffix
+        find_text = forms.ask_for_string(
+            default='',
+            prompt='Find text (leave blank if none):'
+        )
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
-#==================================================
-app    = __revit__.Application
-uidoc  = __revit__.ActiveUIDocument
-doc    = __revit__.ActiveUIDocument.Document #type:Document
+        replace_text = forms.ask_for_string(
+            default='',
+            prompt='Replace with (leave blank if none):'
+        )
 
+        prefix_text = forms.ask_for_string(
+            default='',
+            prompt='Prefix to add (leave blank if none):'
+        )
 
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝
-#==================================================
+        suffix_text = forms.ask_for_string(
+            default='',
+            prompt='Suffix to add (leave blank if none):'
+        )
 
+        with revit.Transaction("Rename Sheets"):
+            for selected in selected_sheets:
+                sheet = sheet_options[selected]
 
+                if rename_target == "Sheet Name":
+                    current_value = sheet.Name
+                else:
+                    current_value = sheet.SheetNumber
 
+                # Apply find and replace
+                if find_text:
+                    new_value = current_value.replace(find_text, replace_text)
+                else:
+                    new_value = current_value
 
-#🤖 Automate Your Boring Work Here
+                # Apply prefix and suffix
+                new_value = prefix_text + new_value + suffix_text
 
+                # Update the sheet property
+                if rename_target == "Sheet Name":
+                    sheet.Name = new_value
+                else:
+                    sheet.SheetNumber = new_value
 
+        forms.alert("Sheets renamed successfully!", title="Done")
 
-
-
-#==================================================
-#🚫 DELETE BELOW
-from Snippets._customprint import kit_button_clicked    # Import Reusable Function from 'lib/Snippets/_customprint.py'
-kit_button_clicked(btn_name=__title__)                  # Display Default Print Message
